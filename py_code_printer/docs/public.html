@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline';">
+    <title>Python Code Printer</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 1.5cm;
+        }
+        
+        * {
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f8f9fa;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .controls {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            margin-bottom: 25px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.07);
+            border: 1px solid #e9ecef;
+        }
+        
+        h1 {
+            margin: 0 0 25px 0;
+            color: #212529;
+            font-size: 28px;
+            font-weight: 600;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #495057;
+        }
+        
+        select {
+            width: 100%;
+            max-width: 300px;
+            padding: 10px 15px;
+            border: 2px solid #dee2e6;
+            border-radius: 6px;
+            font-size: 14px;
+            background: white;
+            cursor: pointer;
+            transition: border-color 0.2s;
+        }
+        
+        select:focus {
+            outline: none;
+            border-color: #007bff;
+            box-shadow: 0 0 0 3px rgba(0,123,255,0.1);
+        }
+        
+        textarea {
+            width: 100%;
+            min-height: 300px;
+            font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', 'Courier New', monospace;
+            font-size: 14px;
+            padding: 20px;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            resize: vertical;
+            background: #fdfdfd;
+            transition: border-color 0.2s;
+            line-height: 1.5;
+        }
+        
+        textarea:focus {
+            outline: none;
+            border-color: #007bff;
+            box-shadow: 0 0 0 3px rgba(0,123,255,0.1);
+        }
+        
+        .buttons {
+            margin-top: 20px;
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            min-width: 140px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        
+        .btn-format {
+            background: #28a745;
+            color: white;
+        }
+        
+        .btn-print {
+            background: #007bff;
+            color: white;
+        }
+        
+        .btn-clear {
+            background: #dc3545;
+            color: white;
+        }
+        
+        button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        
+        button:active:not(:disabled) {
+            transform: translateY(0);
+        }
+        
+        button:disabled {
+            background: #6c757d !important;
+            cursor: not-allowed;
+            opacity: 0.6;
+            transform: none !important;
+            box-shadow: none !important;
+        }
+        
+        .loading {
+            opacity: 0.7;
+            pointer-events: none;
+        }
+        
+        .output {
+            display: none;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.07);
+            border: 1px solid #e9ecef;
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #2c3e50, #34495e);
+            color: white;
+            padding: 20px 25px;
+            font-weight: 600;
+            font-size: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .header-info {
+            font-size: 12px;
+            opacity: 0.9;
+        }
+        
+        .code-area {
+            display: flex;
+            background: #fafafa;
+            min-height: 400px;
+        }
+        
+        .line-nums {
+            background: #f1f3f4;
+            color: #5f6368;
+            padding: 25px 20px;
+            text-align: right;
+            font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.6;
+            border-right: 2px solid #e8eaed;
+            user-select: none;
+            white-space: pre;
+            min-width: 60px;
+        }
+        
+        .code {
+            flex: 1;
+            padding: 25px;
+            font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.6;
+            white-space: pre;
+            overflow-x: auto;
+            background: white;
+        }
+        
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .success-message {
+            background: #d4edda;
+            color: #155724;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            border: 1px solid #c3e6cb;
+        }
+        
+        /* Theme Styles */
+        
+        /* Default theme */
+        .default .kw { color: #0066cc; font-weight: 600; }
+        .default .st { color: #008000; }
+        .default .cm { color: #808080; font-style: italic; }
+        .default .nu { color: #ff6600; }
+        .default .fn { color: #cc0066; font-weight: 600; }
+        .default .bi { color: #9900cc; }
+        .default .op { color: #666666; }
+        
+        /* Dark theme */
+        .dark .code-area { background: #1e1e1e; }
+        .dark .line-nums { background: #2d2d2d; color: #858585; border-right-color: #404040; }
+        .dark .code { background: #1e1e1e; color: #d4d4d4; }
+        .dark .kw { color: #569cd6; font-weight: 600; }
+        .dark .st { color: #ce9178; }
+        .dark .cm { color: #6a9955; font-style: italic; }
+        .dark .nu { color: #b5cea8; }
+        .dark .fn { color: #dcdcaa; font-weight: 600; }
+        .dark .bi { color: #4ec9b0; }
+        .dark .op { color: #d4d4d4; }
+        
+        /* Colorful theme */
+        .colorful .kw { color: #ff1493; font-weight: 600; }
+        .colorful .st { color: #32cd32; }
+        .colorful .cm { color: #9370db; font-style: italic; }
+        .colorful .nu { color: #ff4500; }
+        .colorful .fn { color: #1e90ff; font-weight: 600; }
+        .colorful .bi { color: #ff6347; }
+        .colorful .op { color: #666666; }
+        
+        /* Minimal theme */
+        .minimal .kw { color: #000000; font-weight: 600; }
+        .minimal .st { color: #666666; }
+        .minimal .cm { color: #999999; font-style: italic; }
+        .minimal .nu { color: #333333; }
+        .minimal .fn { color: #000000; font-weight: 600; text-decoration: underline; }
+        .minimal .bi { color: #444444; }
+        .minimal .op { color: #000000; }
+        
+        /* Forest theme */
+        .forest .code-area { background: #f8f9fa; }
+        .forest .kw { color: #2d5016; font-weight: 600; }
+        .forest .st { color: #0f5132; }
+        .forest .cm { color: #6c757d; font-style: italic; }
+        .forest .nu { color: #d63384; }
+        .forest .fn { color: #0c4128; font-weight: 600; }
+        .forest .bi { color: #495057; }
+        .forest .op { color: #495057; }
+        
+        /* Sunset theme */
+        .sunset .code-area { background: #fff8f5; }
+        .sunset .kw { color: #dc3545; font-weight: 600; }
+        .sunset .st { color: #fd7e14; }
+        .sunset .cm { color: #6c757d; font-style: italic; }
+        .sunset .nu { color: #e83e8c; }
+        .sunset .fn { color: #d63384; font-weight: 600; }
+        .sunset .bi { color: #6f42c1; }
+        .sunset .op { color: #6c757d; }
+        
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            body {
+                padding: 15px;
+            }
+            
+            .controls {
+                padding: 20px;
+            }
+            
+            h1 {
+                font-size: 24px;
+            }
+            
+            .buttons {
+                flex-direction: column;
+            }
+            
+            button {
+                width: 100%;
+                min-width: auto;
+            }
+            
+            select {
+                max-width: none;
+            }
+            
+            .header {
+                flex-direction: column;
+                gap: 10px;
+                text-align: center;
+            }
+            
+            .code-area {
+                flex-direction: column;
+            }
+            
+            .line-nums {
+                border-right: none;
+                border-bottom: 2px solid #e8eaed;
+                padding: 15px 20px;
+                min-width: auto;
+            }
+        }
+        
+        @media print {
+            body { 
+                background: white !important; 
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+            .container {
+                max-width: none !important;
+            }
+            .controls { 
+                display: none !important; 
+            }
+            .output { 
+                display: block !important; 
+                box-shadow: none !important;
+                border-radius: 0 !important;
+                border: none !important;
+            }
+            .header {
+                background: #2c3e50 !important;
+                -webkit-print-color-adjust: exact;
+                color-adjust: exact;
+            }
+            .code-area {
+                background: white !important;
+            }
+            .line-nums {
+                background: #f8f9fa !important;
+                -webkit-print-color-adjust: exact;
+                color-adjust: exact;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="controls">
+            <h1>🐍 Python Code Printer</h1>
+            
+            <div class="form-group">
+                <label for="colorTheme">Color Theme:</label>
+                <select id="colorTheme" onchange="applyTheme()" aria-label="Select color theme for syntax highlighting">
+                    <option value="default">Default (Blue/Green)</option>
+                    <option value="dark">Dark Theme</option>
+                    <option value="colorful">Colorful</option>
+                    <option value="minimal">Minimal (Black/Gray)</option>
+                    <option value="forest">Forest Theme</option>
+                    <option value="sunset">Sunset Theme</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="codeInput">Python Code:</label>
+                <textarea 
+                    id="codeInput" 
+                    placeholder="Paste your Python code here..."
+                    aria-label="Python code input area"
+                    spellcheck="false"
+                    autocomplete="off"
+                >def fibonacci(n):
+    """Calculate the nth Fibonacci number recursively."""
+    if n <= 1:
+        return n
+    return fibonacci(n-1) + fibonacci(n-2)
+
+class Person:
+    """A simple Person class demonstration."""
+    
+    def __init__(self, name, age):
+        self.name = name
+        self.age = age
+    
+    def greet(self):
+        """Print a greeting message."""
+        print(f"Hello, I'm {self.name} and I'm {self.age} years old")
+    
+    def __str__(self):
+        return f"Person(name='{self.name}', age={self.age})"
+
+# Example usage with error handling
+def main():
+    try:
+        person = Person("Alice", 30)
+        person.greet()
+        
+        # Generate Fibonacci sequence
+        numbers = [fibonacci(i) for i in range(10)]
+        print("Fibonacci sequence:", numbers)
+        
+        # Demonstrate list comprehension
+        squares = [x**2 for x in range(1, 11) if x % 2 == 0]
+        print("Even squares:", squares)
+        
+    except Exception as e:
+        print(f"An error occurred: {e}")
+
+if __name__ == "__main__":
+    main()</textarea>
+            </div>
+            
+            <div class="buttons">
+                <button class="btn-format" onclick="formatCode()" aria-label="Format code for printing">
+                    📄 Format for Print
+                </button>
+                <button class="btn-print" onclick="printCode()" id="printBtn" disabled aria-label="Print formatted code">
+                    🖨️ Print
+                </button>
+                <button class="btn-clear" onclick="clearCode()" aria-label="Clear code input">
+                    🗑️ Clear
+                </button>
+            </div>
+            
+            <div id="messageArea"></div>
+        </div>
+        
+        <div class="output" id="output" role="region" aria-label="Formatted code output">
+            <div class="header" id="header">
+                <div>Python Code</div>
+                <div class="header-info" id="headerInfo"></div>
+            </div>
+            <div class="code-area">
+                <div class="line-nums" id="lineNumbers" aria-label="Line numbers"></div>
+                <div class="code" id="codeContent" aria-label="Formatted Python code"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global state
+        let isProcessing = false;
+        
+        // Utility functions
+        function showMessage(message, type = 'success') {
+            const messageArea = document.getElementById('messageArea');
+            const messageClass = type === 'error' ? 'error-message' : 'success-message';
+            messageArea.innerHTML = `<div class="${messageClass}">${message}</div>`;
+            
+            // Auto-hide success messages
+            if (type !== 'error') {
+                setTimeout(() => {
+                    messageArea.innerHTML = '';
+                }, 3000);
+            }
+        }
+        
+        function clearMessage() {
+            document.getElementById('messageArea').innerHTML = '';
+        }
+        
+        function setLoading(loading) {
+            isProcessing = loading;
+            const controls = document.querySelector('.controls');
+            const buttons = document.querySelectorAll('button');
+            
+            if (loading) {
+                controls.classList.add('loading');
+                buttons.forEach(btn => btn.disabled = true);
+            } else {
+                controls.classList.remove('loading');
+                buttons.forEach(btn => {
+                    if (btn.id === 'printBtn') {
+                        btn.disabled = document.getElementById('output').style.display === 'none';
+                    } else {
+                        btn.disabled = false;
+                    }
+                });
+            }
+        }
+        
+        function applyTheme() {
+            try {
+                const theme = document.getElementById('colorTheme').value;
+                const output = document.getElementById('output');
+                
+                // Remove all theme classes
+                output.classList.remove('default', 'dark', 'colorful', 'minimal', 'forest', 'sunset');
+                
+                // Add selected theme class
+                output.classList.add(theme);
+            } catch (error) {
+                console.error('Error applying theme:', error);
+                showMessage('Error applying theme. Please try again.', 'error');
+            }
+        }
+        
+        function validateCode(code) {
+            if (!code || !code.trim()) {
+                throw new Error('Please enter some Python code!');
+            }
+            
+            if (code.trim().length > 100000) {
+                throw new Error('Code is too long. Please limit to 100,000 characters.');
+            }
+            
+            return true;
+        }
+        
+        function formatCode() {
+            if (isProcessing) return;
+            
+            try {
+                clearMessage();
+                setLoading(true);
+                
+                const code = document.getElementById('codeInput').value;
+                validateCode(code);
+                
+                // Process code formatting with a small delay for UX
+                setTimeout(() => {
+                    try {
+                        const lines = code.split('\n');
+                        
+                        // Create line numbers
+                        let lineNums = '';
+                        for (let i = 1; i <= lines.length; i++) {
+                            lineNums += i + (i < lines.length ? '\n' : '');
+                        }
+                        document.getElementById('lineNumbers').textContent = lineNums;
+                        
+                        // Apply syntax highlighting
+                        const highlighted = highlightCode(code);
+                        document.getElementById('codeContent').innerHTML = highlighted;
+                        
+                        // Update header with metadata
+                        const now = new Date().toLocaleString();
+                        const lineCount = lines.length;
+                        const charCount = code.length;
+                        
+                        document.getElementById('header').querySelector('div').textContent = 'Python Code';
+                        document.getElementById('headerInfo').textContent = 
+                            `Generated ${now} • ${lineCount} lines • ${charCount} characters`;
+                        
+                        // Apply current theme
+                        applyTheme();
+                        
+                        // Show output and enable print button
+                        document.getElementById('output').style.display = 'block';
+                        document.getElementById('printBtn').disabled = false;
+                        
+                        // Scroll to output smoothly
+                        setTimeout(() => {
+                            document.getElementById('output').scrollIntoView({ 
+                                behavior: 'smooth',
+                                block: 'start'
+                            });
+                        }, 100);
+                        
+                        showMessage('Code formatted successfully! Ready to print.');
+                        
+                    } catch (error) {
+                        console.error('Error during formatting:', error);
+                        showMessage('Error formatting code: ' + error.message, 'error');
+                    } finally {
+                        setLoading(false);
+                    }
+                }, 300);
+                
+            } catch (error) {
+                console.error('Validation error:', error);
+                showMessage(error.message, 'error');
+                setLoading(false);
+            }
+        }
+        
+        function printCode() {
+            try {
+                const output = document.getElementById('output');
+                if (output.style.display === 'none') {
+                    showMessage('Please format your code first!', 'error');
+                    return;
+                }
+                
+                // Check if browser supports printing
+                if (!window.print) {
+                    showMessage('Printing is not supported in this browser.', 'error');
+                    return;
+                }
+                
+                showMessage('Opening print dialog...');
+                
+                // Small delay to ensure message is shown
+                setTimeout(() => {
+                    window.print();
+                }, 100);
+                
+            } catch (error) {
+                console.error('Error printing:', error);
+                showMessage('Error opening print dialog. Please try again.', 'error');
+            }
+        }
+        
+        function highlightCode(code) {
+            try {
+                // Escape HTML first
+                let result = code
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#39;');
+                
+                // Define syntax patterns
+                const keywords = [
+                    'def', 'class', 'if', 'else', 'elif', 'for', 'while', 'try', 'except', 
+                    'finally', 'with', 'import', 'from', 'return', 'yield', 'break', 
+                    'continue', 'pass', 'and', 'or', 'not', 'in', 'is', 'lambda', 
+                    'True', 'False', 'None', 'async', 'await', 'global', 'nonlocal',
+                    'assert', 'del', 'raise', 'as'
+                ];
+                
+                const builtins = [
+                    'print', 'input', 'len', 'range', 'str', 'int', 'float', 'list', 
+                    'dict', 'set', 'tuple', 'enumerate', 'zip', 'map', 'filter', 
+                    'sorted', 'reversed', 'sum', 'min', 'max', 'abs', 'round', 'open', 
+                    'type', 'isinstance', 'hasattr', 'getattr', 'setattr', 'bool',
+                    'bytes', 'object', 'super', 'property', 'staticmethod', 'classmethod'
+                ];
+                
+                // Apply highlighting in specific order to avoid conflicts
+                
+                // 1. Multi-line strings and comments first
+                result = result.replace(/"""[\s\S]*?"""/g, '<span class="cm">$&</span>');
+                result = result.replace(/'''[\s\S]*?'''/g, '<span class="cm">$&</span>');
+                
+                // 2. Single line comments
+                result = result.replace(/#[^\r\n]*/g, '<span class="cm">$&</span>');
+                
+                // 3. Strings (avoiding already highlighted content)
+                result = result.replace(/(?<!<span[^>]*>)f?r?["'][^"']*["'](?![^<]*<\/span>)/g, '<span class="st">$&</span>');
+                
+                // 4. Numbers (avoiding already highlighted content)
+                result = result.replace(/(?<!<span[^>]*>)\b\d+\.?\d*(?:[eE][+-]?\d+)?\b(?![^<]*<\/span>)/g, '<span class="nu">$&</span>');
+                
+                // 5. Function and class definitions
+                result = result.replace(/(?<!<span[^>]*>)\b(def|class)\s+(\w+)(?![^<]*<\/span>)/g, 
+                    '<span class="kw">$1</span> <span class="fn">$2</span>');
+                
+                // 6. Keywords (avoiding already highlighted content)
+                keywords.forEach(kw => {
+                    const regex = new RegExp(`(?<!<span[^>]*>)\\b${kw}\\b(?![^<]*<\\/span>)`, 'g');
+                    result = result.replace(regex, `<span class="kw">${kw}</span>`);
+                });
+                
+                // 7. Built-in functions (with function call pattern)
+                builtins.forEach(bi => {
+                    const regex = new RegExp(`(?<!<span[^>]*>)\\b${bi}(?=\\s*\\()(?![^<]*<\\/span>)`, 'g');
+                    result = result.replace(regex, `<span class="bi">${bi}</span>`);
+                });
+                
+                // 8. Operators
+                result = result.replace(/(?<!<span[^>]*>)[+\-*/%=<>!&|^~](?![^<]*<\/span>)/g, '<span class="op">$&</span>');
+                
+                return result;
+                
+            } catch (error) {
+                console.error('Error in syntax highlighting:', error);
+                // Return escaped code without highlighting as fallback
+                return code
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;');
+            }
+        }
+        
+        function clearCode() {
+            try {
+                if (isProcessing) return;
+                
+                document.getElementById('codeInput').value = '';
+                document.getElementById('output').style.display = 'none';
+                document.getElementById('printBtn').disabled = true;
+                clearMessage();
+                
+                // Focus back to textarea
+                document.getElementById('codeInput').focus();
+                
+                showMessage('Code cleared successfully.');
+                
+            } catch (error) {
+                console.error('Error clearing code:', error);
+                showMessage('Error clearing code. Please refresh the page.', 'error');
+            }
+        }
+        
+        // Keyboard shortcuts
+        document.addEventListener('keydown', function(e) {
+            // Ctrl/Cmd + Enter to format
+            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                e.preventDefault();
+                formatCode();
+            }
+            
+            // Ctrl/Cmd + P to print (when formatted)
+            if ((e.ctrlKey || e.metaKey) && e.key === 'p' && !document.getElementById('printBtn').disabled) {
+                e.preventDefault();
+                printCode();
+            }
+        });
+        
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            try {
+                applyTheme();
+                
+                // Focus on textarea
+                document.getElementById('codeInput').focus();
+                
+            } catch (error) {
+                console.error('Error during initialization:', error);
+                showMessage('Error initializing application. Please refresh the page.', 'error');
+            }
+        });
+        
+        // Handle print media query changes
+        if (window.matchMedia) {
+            const mediaQuery = window.matchMedia('print');
+            mediaQuery.addListener(function(mq) {
+                if (mq.matches) {
+                    console.log('Entering print mode');
+                }
+            });
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Python Code Printer</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 2cm;
+        }
+        
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f5f5f5;
+        }
+        
+        .controls {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            margin: 0 0 20px 0;
+            color: #333;
+        }
+        
+        textarea {
+            width: 100%;
+            height: 250px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            padding: 15px;
+            border: 2px solid #ddd;
+            border-radius: 4px;
+            resize: vertical;
+            background: #fdfdfd;
+        }
+        
+        .buttons {
+            margin-top: 15px;
+        }
+        
+        button {
+            padding: 12px 24px;
+            margin-right: 10px;
+            border: none;
+            border-radius: 4px;
+            font-size: 14px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        
+        .btn-format {
+            background: #28a745;
+            color: white;
+        }
+        
+        .btn-print {
+            background: #007bff;
+            color: white;
+        }
+        
+        .btn-clear {
+            background: #dc3545;
+            color: white;
+        }
+        
+        button:hover:not(:disabled) {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+        
+        button:disabled {
+            background: #ccc !important;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+        
+        .output {
+            display: none;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: #2c3e50;
+            color: white;
+            padding: 15px 20px;
+            font-weight: bold;
+            font-size: 16px;
+        }
+        
+        .code-area {
+            display: flex;
+            background: #fafafa;
+        }
+        
+        .line-nums {
+            background: #efefef;
+            color: #666;
+            padding: 20px 15px;
+            text-align: right;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            line-height: 1.5;
+            border-right: 2px solid #ddd;
+            user-select: none;
+            white-space: pre;
+        }
+        
+        .code {
+            flex: 1;
+            padding: 20px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            line-height: 1.5;
+            white-space: pre;
+            overflow-x: auto;
+        }
+        
+        /* Color themes for Python syntax */
+        
+        /* Default theme */
+        .default .kw { color: #0066cc; font-weight: bold; }
+        .default .st { color: #009900; }
+        .default .cm { color: #999999; font-style: italic; }
+        .default .nu { color: #ff6600; }
+        .default .fn { color: #cc0066; font-weight: bold; }
+        .default .bi { color: #9900cc; }
+        
+        /* Dark theme */
+        .dark .code-area { background: #1e1e1e; }
+        .dark .line-nums { background: #2d2d2d; color: #858585; border-right-color: #404040; }
+        .dark .code { background: #1e1e1e; color: #d4d4d4; }
+        .dark .kw { color: #569cd6; font-weight: bold; }
+        .dark .st { color: #ce9178; }
+        .dark .cm { color: #6a9955; font-style: italic; }
+        .dark .nu { color: #b5cea8; }
+        .dark .fn { color: #dcdcaa; font-weight: bold; }
+        .dark .bi { color: #4ec9b0; }
+        
+        /* Colorful theme */
+        .colorful .kw { color: #ff1493; font-weight: bold; }
+        .colorful .st { color: #32cd32; }
+        .colorful .cm { color: #9370db; font-style: italic; }
+        .colorful .nu { color: #ff4500; }
+        .colorful .fn { color: #1e90ff; font-weight: bold; }
+        .colorful .bi { color: #ff6347; }
+        
+        /* Minimal theme */
+        .minimal .kw { color: #000000; font-weight: bold; }
+        .minimal .st { color: #666666; }
+        .minimal .cm { color: #999999; font-style: italic; }
+        .minimal .nu { color: #333333; }
+        .minimal .fn { color: #000000; font-weight: bold; text-decoration: underline; }
+        .minimal .bi { color: #444444; }
+        
+        /* Forest theme */
+        .forest .code-area { background: #f8f9fa; }
+        .forest .kw { color: #2d5016; font-weight: bold; }
+        .forest .st { color: #0f5132; }
+        .forest .cm { color: #6c757d; font-style: italic; }
+        .forest .nu { color: #d63384; }
+        .forest .fn { color: #0c4128; font-weight: bold; }
+        .forest .bi { color: #495057; }
+        
+        /* Sunset theme */
+        .sunset .code-area { background: #fff8f5; }
+        .sunset .kw { color: #dc3545; font-weight: bold; }
+        .sunset .st { color: #fd7e14; }
+        .sunset .cm { color: #6c757d; font-style: italic; }
+        .sunset .nu { color: #e83e8c; }
+        .sunset .fn { color: #d63384; font-weight: bold; }
+        .sunset .bi { color: #6f42c1; }
+        
+        @media print {
+            body { 
+                background: white !important; 
+                margin: 0 !important; 
+            }
+            .controls { 
+                display: none !important; 
+            }
+            .output { 
+                display: block !important; 
+                box-shadow: none !important;
+                border-radius: 0 !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="controls">
+        <h1>🐍 Python Code Printer</h1>
+        
+        <div style="margin-bottom: 15px;">
+            <label for="colorTheme" style="font-weight: bold; margin-right: 10px;">Color Theme:</label>
+            <select id="colorTheme" style="padding: 8px; border: 2px solid #ddd; border-radius: 4px; font-size: 14px;" onchange="applyTheme()">
+                <option value="default">Default (Blue/Green)</option>
+                <option value="dark">Dark Theme</option>
+                <option value="colorful">Colorful</option>
+                <option value="minimal">Minimal (Black/Gray)</option>
+                <option value="forest">Forest Theme</option>
+                <option value="sunset">Sunset Theme</option>
+            </select>
+        </div>
+        
+        <textarea id="codeInput" placeholder="Paste your Python code here...">def fibonacci(n):
+    if n <= 1:
+        return n
+    return fibonacci(n-1) + fibonacci(n-2)
+
+class Person:
+    def __init__(self, name, age):
+        self.name = name
+        self.age = age
+    
+    def greet(self):
+        print(f"Hello, I'm {self.name} and I'm {self.age} years old")
+
+# Example usage
+person = Person("Alice", 30)
+person.greet()
+
+numbers = [fibonacci(i) for i in range(10)]
+print("Fibonacci sequence:", numbers)</textarea>
+        
+        <div class="buttons">
+            <button class="btn-format" onclick="formatCode()">📄 Format for Print</button>
+            <button class="btn-print" onclick="printCode()" id="printBtn" disabled>🖨️ Print</button>
+            <button class="btn-clear" onclick="clearCode()">🗑️ Clear</button>
+        </div>
+    </div>
+    
+    <div class="output" id="output">
+        <div class="header" id="header">Python Code</div>
+        <div class="code-area">
+            <div class="line-nums" id="lineNumbers"></div>
+            <div class="code" id="codeContent"></div>
+        </div>
+    </div>
+
+    <script>
+        function applyTheme() {
+            const theme = document.getElementById('colorTheme').value;
+            const output = document.getElementById('output');
+            
+            // Remove all theme classes
+            output.classList.remove('default', 'dark', 'colorful', 'minimal', 'forest', 'sunset');
+            
+            // Add selected theme class
+            output.classList.add(theme);
+        }
+        
+        function formatCode() {
+            const code = document.getElementById('codeInput').value;
+            
+            if (!code.trim()) {
+                alert('Please enter some Python code!');
+                return;
+            }
+            
+            const lines = code.split('\n');
+            
+            // Create line numbers
+            let lineNums = '';
+            for (let i = 1; i <= lines.length; i++) {
+                lineNums += i + '\n';
+            }
+            document.getElementById('lineNumbers').textContent = lineNums;
+            
+            // Simple syntax highlighting
+            const highlighted = highlightCode(code);
+            document.getElementById('codeContent').innerHTML = highlighted;
+            
+            // Update header
+            const now = new Date().toLocaleString();
+            document.getElementById('header').textContent = `Python Code - Generated ${now}`;
+            
+            // Apply current theme
+            applyTheme();
+            
+            // Show output and enable print button
+            document.getElementById('output').style.display = 'block';
+            document.getElementById('printBtn').disabled = false;
+            
+            // Scroll to output
+            document.getElementById('output').scrollIntoView({ behavior: 'smooth' });
+        }
+        
+        function printCode() {
+            // Make sure the formatted code is visible for printing
+            const output = document.getElementById('output');
+            if (output.style.display === 'none') {
+                alert('Please format your code first!');
+                return;
+            }
+            
+            // Print the page
+            window.print();
+        }
+        
+        function highlightCode(code) {
+            // Escape HTML
+            let result = code.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            
+            // Keywords (simple approach)
+            const keywords = ['def', 'class', 'if', 'else', 'elif', 'for', 'while', 'try', 'except', 'finally', 'with', 'import', 'from', 'return', 'yield', 'break', 'continue', 'pass', 'and', 'or', 'not', 'in', 'is', 'lambda', 'True', 'False', 'None', 'async', 'await', 'global', 'nonlocal'];
+            
+            // Built-ins
+            const builtins = ['print', 'input', 'len', 'range', 'str', 'int', 'float', 'list', 'dict', 'set', 'tuple', 'enumerate', 'zip', 'map', 'filter', 'sorted', 'reversed', 'sum', 'min', 'max', 'abs', 'round', 'open', 'type', 'isinstance', 'hasattr', 'getattr', 'setattr'];
+            
+            // Apply highlighting one by one to avoid conflicts
+            
+            // 1. Comments first (including docstrings)
+            result = result.replace(/#.*$/gm, '<span class="cm">$&</span>');
+            result = result.replace(/"""[\s\S]*?"""/g, '<span class="cm">$&</span>');
+            result = result.replace(/'''[\s\S]*?'''/g, '<span class="cm">$&</span>');
+            
+            // 2. Strings
+            result = result.replace(/"[^"]*"/g, '<span class="st">$&</span>');
+            result = result.replace(/'[^']*'/g, '<span class="st">$&</span>');
+            result = result.replace(/f"[^"]*"/g, '<span class="st">$&</span>');
+            result = result.replace(/f'[^']*'/g, '<span class="st">$&</span>');
+            
+            // 3. Numbers
+            result = result.replace(/\b\d+\.?\d*\b/g, '<span class="nu">$&</span>');
+            
+            // 4. Function definitions
+            result = result.replace(/def\s+(\w+)/g, 'def <span class="fn">$1</span>');
+            result = result.replace(/class\s+(\w+)/g, 'class <span class="fn">$1</span>');
+            
+            // 5. Keywords
+            keywords.forEach(kw => {
+                const regex = new RegExp('\\b' + kw + '\\b(?![^<]*>)', 'g');
+                result = result.replace(regex, '<span class="kw">' + kw + '</span>');
+            });
+            
+            // 6. Built-ins
+            builtins.forEach(bi => {
+                const regex = new RegExp('\\b' + bi + '\\b(?![^<]*>)(?=\\s*\\()', 'g');
+                result = result.replace(regex, '<span class="bi">' + bi + '</span>');
+            });
+            
+            return result;
+        }
+        
+        function clearCode() {
+            document.getElementById('codeInput').value = '';
+            document.getElementById('output').style.display = 'none';
+            document.getElementById('printBtn').disabled = true;
+        }
+        
+        // Apply default theme on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            applyTheme();
+        });
+    </script>
+</body>
+</html>

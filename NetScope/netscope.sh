@@ -282,7 +282,7 @@ get_device_type_advanced() {
         local first_octet="${mac:0:2}"
         case "$first_octet" in
             "02"|"06"|"0A"|"0E")
-                device_type=" Maybe Mobile Device (Private/Randomized)"
+                device_type=" Maybe Mobile Device"
                 ;;
             "DA"|"DE")
                 device_type="Apple Device (Private Address)"

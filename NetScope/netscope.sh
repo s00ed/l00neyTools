@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# --- Advanced Network Scanner with MAC Randomization Detection and Public IP ---
+# --- Advanced Network Scanner with DNS, MAC Randomization Detection and Port Scanning ---
 
 shopt -s nocasematch
 
@@ -15,15 +15,19 @@ install_dependencies() {
     local missing_deps=()
     
     # Check which commands are missing
-    for cmd in nmap curl dig; do
+    for cmd in nmap curl dig masscan; do
         if ! command -v "$cmd" &> /dev/null; then
             missing_deps+=("$cmd")
         fi
     done
     
+    # Check for rustscan separately (it might not be in standard repos)
+    if ! command -v rustscan &> /dev/null; then
+        missing_deps+=("rustscan")
+    fi
+    
     # If all dependencies are present, return
     if [ ${#missing_deps[@]} -eq 0 ]; then
-        echo "✓ All dependencies are already installed."
         return 0
     fi
     
@@ -33,13 +37,28 @@ install_dependencies() {
     # Detect package manager and install
     if command -v apt-get &> /dev/null; then
         echo "📦 Using apt-get (Debian/Ubuntu)..."
-        apt-get update -qq
+        apt-get update -qq > /dev/null 2>&1
         for dep in "${missing_deps[@]}"; do
             echo "Installing $dep..."
             if [ "$dep" = "dig" ]; then
-                apt-get install -y dnsutils
+                apt-get install -y dnsutils > /dev/null 2>&1
+            elif [ "$dep" = "masscan" ]; then
+                apt-get install -y masscan > /dev/null 2>&1
+            elif [ "$dep" = "rustscan" ]; then
+                # Try to install rustscan from snap or download binary
+                if command -v snap &> /dev/null; then
+                    snap install rustscan > /dev/null 2>&1
+                else
+                    echo "⚠️  RustScan not available via apt. Trying alternative installation..."
+                    # Download rustscan binary for Linux
+                    wget -q https://github.com/RustScan/RustScan/releases/download/2.0.1/rustscan_2.0.1_amd64.deb -O /tmp/rustscan.deb > /dev/null 2>&1
+                    if [ -f /tmp/rustscan.deb ]; then
+                        dpkg -i /tmp/rustscan.deb > /dev/null 2>&1
+                        rm -f /tmp/rustscan.deb
+                    fi
+                fi
             else
-                apt-get install -y "$dep"
+                apt-get install -y "$dep" > /dev/null 2>&1
             fi
         done
     elif command -v yum &> /dev/null; then
@@ -47,9 +66,15 @@ install_dependencies() {
         for dep in "${missing_deps[@]}"; do
             echo "Installing $dep..."
             if [ "$dep" = "dig" ]; then
-                yum install -y bind-utils
+                yum install -y bind-utils > /dev/null 2>&1
+            elif [ "$dep" = "masscan" ]; then
+                # Masscan might need EPEL
+                yum install -y epel-release > /dev/null 2>&1
+                yum install -y masscan > /dev/null 2>&1
+            elif [ "$dep" = "rustscan" ]; then
+                echo "⚠️  RustScan not available via yum. Manual installation required."
             else
-                yum install -y "$dep"
+                yum install -y "$dep" > /dev/null 2>&1
             fi
         done
     elif command -v dnf &> /dev/null; then
@@ -57,41 +82,33 @@ install_dependencies() {
         for dep in "${missing_deps[@]}"; do
             echo "Installing $dep..."
             if [ "$dep" = "dig" ]; then
-                dnf install -y bind-utils
+                dnf install -y bind-utils > /dev/null 2>&1
+            elif [ "$dep" = "masscan" ]; then
+                dnf install -y masscan > /dev/null 2>&1
+            elif [ "$dep" = "rustscan" ]; then
+                echo "⚠️  RustScan not available via dnf. Manual installation required."
             else
-                dnf install -y "$dep"
+                dnf install -y "$dep" > /dev/null 2>&1
             fi
         done
     elif command -v pacman &> /dev/null; then
         echo "📦 Using pacman (Arch Linux)..."
-        pacman -Sy --noconfirm
+        pacman -Sy --noconfirm > /dev/null 2>&1
         for dep in "${missing_deps[@]}"; do
             echo "Installing $dep..."
             if [ "$dep" = "dig" ]; then
-                pacman -S --noconfirm bind-tools
+                pacman -S --noconfirm bind-tools > /dev/null 2>&1
+            elif [ "$dep" = "masscan" ]; then
+                pacman -S --noconfirm masscan > /dev/null 2>&1
+            elif [ "$dep" = "rustscan" ]; then
+                # Try AUR if available
+                if command -v yay &> /dev/null; then
+                    yay -S --noconfirm rustscan > /dev/null 2>&1
+                else
+                    echo "⚠️  RustScan not available. Install from AUR manually."
+                fi
             else
-                pacman -S --noconfirm "$dep"
-            fi
-        done
-    elif command -v zypper &> /dev/null; then
-        echo "📦 Using zypper (openSUSE)..."
-        for dep in "${missing_deps[@]}"; do
-            echo "Installing $dep..."
-            if [ "$dep" = "dig" ]; then
-                zypper install -y bind-utils
-            else
-                zypper install -y "$dep"
-            fi
-        done
-    elif command -v apk &> /dev/null; then
-        echo "📦 Using apk (Alpine Linux)..."
-        apk update
-        for dep in "${missing_deps[@]}"; do
-            echo "Installing $dep..."
-            if [ "$dep" = "dig" ]; then
-                apk add bind-tools
-            else
-                apk add "$dep"
+                pacman -S --noconfirm "$dep" > /dev/null 2>&1
             fi
         done
     elif command -v brew &> /dev/null; then
@@ -99,9 +116,13 @@ install_dependencies() {
         for dep in "${missing_deps[@]}"; do
             echo "Installing $dep..."
             if [ "$dep" = "dig" ]; then
-                brew install bind
+                brew install bind > /dev/null 2>&1
+            elif [ "$dep" = "masscan" ]; then
+                brew install masscan > /dev/null 2>&1
+            elif [ "$dep" = "rustscan" ]; then
+                brew install rustscan > /dev/null 2>&1
             else
-                brew install "$dep"
+                brew install "$dep" > /dev/null 2>&1
             fi
         done
     else
@@ -120,7 +141,7 @@ install_dependencies() {
     # Verify installation
     echo "🔍 Verifying installations..."
     local failed_installs=()
-    for cmd in "${missing_deps[@]}"; do
+    for cmd in nmap curl dig masscan; do
         if ! command -v "$cmd" &> /dev/null; then
             failed_installs+=("$cmd")
         else
@@ -128,13 +149,20 @@ install_dependencies() {
         fi
     done
     
+    # RustScan is optional, just warn if not available
+    if ! command -v rustscan &> /dev/null; then
+        echo "⚠️  RustScan not available - will use nmap for all port scans"
+    else
+        echo "✓ rustscan installed successfully"
+    fi
+    
     if [ ${#failed_installs[@]} -gt 0 ]; then
         echo "❌ Failed to install: ${failed_installs[*]}"
         echo "Please install these dependencies manually and try again."
         exit 1
     fi
     
-    echo "✅ All dependencies installed successfully!"
+    echo "✅ Core dependencies installed successfully!"
     echo ""
 }
 
@@ -149,6 +177,50 @@ validate_input() {
     echo "Error: Invalid range. Please provide a number between 1 and 254."
     exit 1
   fi
+}
+
+# Get ACTUAL DNS servers being used (like dnsleaktest.com approach)
+get_real_dns_servers() {
+
+
+    local targets=(
+      "TXT whoami.cloudflare"
+      "A   whoami.akamai.net"
+      "AAAA whoami.akamai.net"
+      "A   whoami.ultradns.net"
+    )
+
+    local ips=()
+    query() {
+      local rr="$1" name="$2"
+      dig +time=2 +tries=1 +short "$name" "$rr" 2>/dev/null | sed 's/"//g'
+    }
+
+    for _ in 1 2 3; do
+      for entry in "${targets[@]}"; do
+        read -r type name <<<"$entry"
+        out="$(query "$type" "$name" || true)"
+        [ -n "$out" ] || continue
+        while IFS= read -r line; do
+          if [[ "$line" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ || "$line" =~ : ]]; then
+            ips+=("$line")
+          fi
+        done <<<"$out"
+      done
+    done
+
+    mapfile -t unique < <(printf "%s
+" "${ips[@]:-}" \
+      | grep -E -v '^(127\.|10\.|172\.(1[6-9]|2[0-9]|3[0-1])\.|192\.168\.|0\.|169\.254\.)' \
+      | sort -u)
+
+    if ((${#unique[@]}==0)); then
+      echo "No public upstream resolver IPs discovered." >&2
+      return 1
+    fi
+
+    printf "%s
+" "${unique[@]}"
 }
 
 # Get public IP address
@@ -378,14 +450,12 @@ add_device() {
 
 # Display network information header
 display_network_info() {
-    echo "🌐 Advanced Network Scanner"
-    echo "─────────────────────────────────────────────────────────────────────────"
-    echo ""
     echo "🔍 NETWORK INFORMATION:"
     echo "├─ Local Network: $SCAN_TARGET"
     echo "├─ Local IP: $LOCAL_IP"
     echo "├─ Gateway IP: $GATEWAY_IP"
     echo "├─ Interface: $IFACE"
+    echo "├─ DNS: $DNS_SERVERS"
     echo "└─ Public IP: $PUBLIC_IP"
     
     if [[ "$PUBLIC_IP" != "Unable to detect" ]]; then
@@ -450,6 +520,198 @@ display_devices() {
     echo ""
 }
 
+# Port scanning function
+port_scan() {
+    echo ""
+    echo "🔍 PORT SCANNING"
+    echo "─────────────────────────────────────────────────────────────────────────"
+    echo ""
+    
+    # Get list of active IPs
+    local active_ips=()
+    for mac in "${!DEVICES[@]}"; do
+        active_ips+=("${DEVICES[$mac]}")
+    done
+    
+    if [ ${#active_ips[@]} -eq 0 ]; then
+        echo "No active devices found for port scanning."
+        return
+    fi
+    
+    local ip_count=${#active_ips[@]}
+    echo "📡 Found $ip_count active device(s) for port scanning"
+    
+    # Choose scanning method based on IP count and available tools
+    if [ $ip_count -gt 5 ] && command -v masscan &> /dev/null; then
+        echo "🚀 Using Masscan for large range scanning (0-60000 ports)..."
+        perform_masscan "${active_ips[@]}"
+    elif command -v rustscan &> /dev/null; then
+        echo "🦀 Using RustScan for fast port detection..."
+        perform_rustscan "${active_ips[@]}"
+    else
+        echo "🔧 Using Nmap for port scanning..."
+        perform_nmap_scan "${active_ips[@]}"
+    fi
+}
+
+# Port scanning progress bar
+show_port_progress() {
+    local current=$1
+    local total=$2
+    local ip=$3
+    local width=40
+    local percent=$((current * 100 / total))
+    local filled=$((current * width / total))
+    
+    printf "\r🔍 Scanning $ip: ["
+    printf "%*s" $filled | tr ' ' '='
+    printf "%*s" $((width - filled)) | tr ' ' '-'
+    printf "] %d%% (%d/%d)" $percent $current $total
+}
+
+# Masscan implementation with progress
+perform_masscan() {
+    local ips=("$@")
+    local target_list=$(IFS=','; echo "${ips[*]}")
+    local total_ips=${#ips[@]}
+    
+    echo "🚀 Scanning ports 1-60000 on $total_ips hosts with Masscan..."
+    echo ""
+    
+    # Run masscan with progress simulation
+    show_port_progress 0 100 "all hosts"
+    
+    local masscan_results=$(masscan -p1-60000 --rate=1000 --wait=3 $target_list 2>/dev/null | grep "open" &)
+    local masscan_pid=$!
+    
+    # Simulate progress while masscan runs
+    local progress=0
+    while kill -0 $masscan_pid 2>/dev/null; do
+        progress=$((progress + 2))
+        if [ $progress -gt 95 ]; then progress=95; fi
+        show_port_progress $progress 100 "all hosts"
+        sleep 1
+    done
+    
+    wait $masscan_pid
+    masscan_results=$(masscan -p1-60000 --rate=1000 --wait=3 $target_list 2>/dev/null | grep "open")
+    show_port_progress 100 100 "all hosts"
+    echo ""
+    echo ""
+    
+    if [[ -n "$masscan_results" ]]; then
+        echo "🎯 Open ports found with Masscan:"
+        echo "=================================="
+        
+        # Process results and group by IP
+        declare -A ip_ports
+        echo "$masscan_results" | while read -r line; do
+            if [[ $line =~ Discovered\ open\ port\ ([0-9]+)\/tcp\ on\ ([0-9\.]+) ]]; then
+                local port="${BASH_REMATCH[1]}"
+                local ip="${BASH_REMATCH[2]}"
+                echo "├─ $ip:$port"
+            fi
+        done
+        
+        echo ""
+        echo "🔍 Running detailed Nmap scan on discovered ports..."
+        echo ""
+        
+        # Extract unique IPs with open ports for detailed scanning
+        local detailed_targets=$(echo "$masscan_results" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | sort -u)
+        local target_count=$(echo "$detailed_targets" | wc -l)
+        local current=0
+        
+        for target_ip in $detailed_targets; do
+            current=$((current + 1))
+            local open_ports=$(echo "$masscan_results" | grep "$target_ip" | grep -oE 'port [0-9]+' | cut -d' ' -f2 | tr '\n' ',' | sed 's/,$//')
+            
+            if [[ -n "$open_ports" ]]; then
+                show_port_progress $current $target_count "$target_ip"
+                local nmap_result=$(nmap -sS -sV -O -p "$open_ports" "$target_ip" 2>/dev/null)
+                echo ""
+                echo "📡 Detailed scan of $target_ip (ports: $open_ports):"
+                echo "$nmap_result" | grep -E "(PORT|tcp|udp|Service|OS|Device)" | grep -v "Not shown"
+                echo ""
+            fi
+        done
+    else
+        echo "❌ No open ports found in the scanned range."
+    fi
+}
+
+# RustScan implementation with progress
+perform_rustscan() {
+    local ips=("$@")
+    local total_ips=${#ips[@]}
+    local current=0
+    
+    echo "🦀 Using RustScan for fast port detection..."
+    echo ""
+    
+    for ip in "${ips[@]}"; do
+        current=$((current + 1))
+        show_port_progress $current $total_ips "$ip"
+        
+        # Run rustscan with timeout
+        local rustscan_results=$(timeout 60 rustscan -a "$ip" -r 1-65535 --timeout 1000 2>/dev/null | grep "Open")
+        
+        echo ""
+        if [[ -n "$rustscan_results" ]]; then
+            echo "🎯 Open ports found on $ip:"
+            local open_ports=$(echo "$rustscan_results" | grep -oE '[0-9]+' | tr '\n' ',' | sed 's/,$//')
+            
+            if [[ -n "$open_ports" ]]; then
+                echo "🔍 Running detailed Nmap scan..."
+                local nmap_result=$(nmap -sS -sV -O -p "$open_ports" "$ip" 2>/dev/null)
+                echo "📡 Detailed scan results:"
+                echo "$nmap_result" | grep -E "(PORT|tcp|udp|Service|OS|Device)" | grep -v "Not shown"
+            fi
+        else
+            echo "❌ No open ports found on $ip"
+        fi
+        echo ""
+    done
+}
+
+# Standard Nmap scan implementation with progress
+perform_nmap_scan() {
+    local ips=("$@")
+    local total_ips=${#ips[@]}
+    local current=0
+    
+    echo "🔧 Using Nmap for comprehensive port scanning..."
+    echo ""
+    
+    for ip in "${ips[@]}"; do
+        current=$((current + 1))
+        show_port_progress $current $total_ips "$ip"
+        
+        echo ""
+        echo "📡 Scanning common ports on $ip..."
+        
+        # Quick scan of common ports first
+        local quick_results=$(nmap -sS --top-ports 1000 "$ip" 2>/dev/null | grep "open")
+        
+        if [[ -n "$quick_results" ]]; then
+            echo "🎯 Open ports found:"
+            echo "$quick_results"
+            
+            # Get open port numbers for detailed scan
+            local open_ports=$(echo "$quick_results" | grep -oE '^[0-9]+' | tr '\n' ',' | sed 's/,$//')
+            
+            if [[ -n "$open_ports" ]]; then
+                echo "🔍 Running detailed service and OS detection..."
+                local detailed_results=$(nmap -sS -sV -O -p "$open_ports" "$ip" 2>/dev/null)
+                echo "$detailed_results" | grep -E "(Service|OS|Device)"
+            fi
+        else
+            echo "❌ No open ports found (common ports)"
+        fi
+        echo ""
+    done
+}
+
 # --- Main Logic ---
 
 # First, install dependencies if needed
@@ -475,6 +737,9 @@ fi
 
 NETWORK_PREFIX=$(echo "$LOCAL_IP" | cut -d'.' -f1-3)
 SCAN_TARGET="$NETWORK_PREFIX.1-$SCAN_RANGE"
+
+# Now get DNS servers after we have interface info
+DNS_SERVERS=$(get_real_dns_servers)
 
 # Progress bar function
 show_progress() {
@@ -566,3 +831,19 @@ fi
 
 # Display results
 display_devices
+
+# Ask user if they want to perform port scanning
+echo "🚀 PORT SCANNING OPTIONS"
+echo "─────────────────────────────────────────────────────────────────────────"
+echo ""
+read -p "Do you want to perform port scanning on discovered devices? (y/n): " -n 1 -r
+echo ""
+
+if [[ $REPLY =~ ^[Yy]$ ]]; then
+    port_scan
+else
+    echo "Port scanning skipped. Network discovery complete!"
+fi
+
+echo ""
+echo "✅ Scan complete! All results have been displayed above."

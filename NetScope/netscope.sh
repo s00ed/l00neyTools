@@ -276,13 +276,13 @@ get_device_type_advanced() {
     
     # Check if MAC is randomized first
     if is_randomized_mac "$mac"; then
-        device_type="Mobile Device (Randomized MAC)"
+        device_type="Maybe Mobile Device (Randomized MAC)"
         
         # Try to determine device type from randomized MAC patterns
         local first_octet="${mac:0:2}"
         case "$first_octet" in
             "02"|"06"|"0A"|"0E")
-                device_type="Mobile Device (Private/Randomized)"
+                device_type=" Maybe Mobile Device (Private/Randomized)"
                 ;;
             "DA"|"DE")
                 device_type="Apple Device (Private Address)"

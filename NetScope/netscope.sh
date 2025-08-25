@@ -403,7 +403,7 @@ display_network_info() {
 display_devices() {
     echo ""
     echo "=== NETWORK SCAN RESULTS ==="
-    printf "%-16s %-18s %-28s %-20s %s\n" "IP ADDRESS" "MAC ADDRESS" "DEVICE TYPE" "RANDOMIZED" "MANUFACTURER"
+    printf "%-16s %-18s %-28s %-20s %s\n" "IP ADDRESS" "MAC ADDRESS" "DEVICE TYPE" "RANDOMIZED/PRIVATE" "MANUFACTURER"
     echo "=========================================================================================================="
     
     # Sort devices by IP address
